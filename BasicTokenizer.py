@@ -30,7 +30,7 @@ class BasicTokenizer:
         replace_tokens = deepcopy(raw_tokens)
         for i in range(num_merges):
             swap_idx = 256 + i
-            freq = Counter(list(zip(replace_tokens, replace_tokens[1:])))
+            freq = Counter(zip(replace_tokens, replace_tokens[1:]))
             tup = max(freq, key = freq.get)
             replace_tokens = self.merge(replace_tokens, tup, swap_idx)
             self.merges[tup] = swap_idx
