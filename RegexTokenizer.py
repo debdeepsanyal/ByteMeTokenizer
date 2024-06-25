@@ -27,7 +27,7 @@ class RegexTokenizer():
         else:
             self.text = text
         
-        chunk_texts = re.findall(self.pattern, self.text)
+        chunk_texts = re.findall(self.compiled_pattern, self.text)
         self.merges = {}
         self.vocab = {idx : bytes([idx]) for idx in range(256)}
         num_merges = vocab_size - 256
@@ -48,6 +48,52 @@ class RegexTokenizer():
         
         if verbose:
             print(f'Compression ratio {len(raw_tokens) / len(new_tokens) : .2f}')
+        
+    
+    def _encode_chunk(self, text_byte):
+        raw_tokens = list(text_byte)
+        while len(raw_tokens) >= 2:
+            freq = Counter(zip(raw_tokens, raw_tokens[1:]))
+            eligible_pair = min(freq, key = lambda p : self.merges.get(p, float('inf')))
+            if eligible_pair not in self.merges:
+                break #nothing more to merge 
+                
+            merging_idx = self.merges[eligible_pair]
+            raw_tokens = merge(raw_tokens, eligible_pair, merging_idx)
+        
+        return raw_tokens
+    
+    def encode(self, text):
+        text_chunks = re.findall(self.compiled_pattern, text)
+        ret = []
+        for chunk in text_chunks:
+            chunk_byte = chunk.encode('utf-8')
+            encoded_chunk = self._encode_chunk(chunk_byte)
+            ret.extend(encoded_chunk)
+        
+        return ret 
+    
+    def decode(self, tokens):
+        part_bytes = []
+        for idx in tokens:
+            if idx in self.vocab:
+                part_bytes.append(self.vocab[idx])
+            else:
+                raise ValueError(f"The token {idx} is invalid.")
+        
+        return b''.join(part_bytes).decode('utf-8', errors = 'replace')
+    
+
+reg = RegexTokenizer()
+reg.train('/teamspace/studios/this_studio/Tokenization/TaylorSwiftWiki.txt', 1256, True)
+text = 'Another attempt at a really random text !!!></ 😂'
+print(reg.decode(reg.encode(text)) == text)
+    
+
+
+
+        
+    
         
     
 
