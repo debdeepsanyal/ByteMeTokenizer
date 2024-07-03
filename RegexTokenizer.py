@@ -19,6 +19,8 @@ class RegexTokenizer():
             self.pattern = pattern
         
         self.compiled_pattern = re.compile(self.pattern)
+        self.special_tokens = dict()
+        self.inverse_special_tokens = dict()
     
     def train(self, text : str, vocab_size : int, isFile : bool = False, verbose : bool = False):
         assert vocab_size >= 256
@@ -42,12 +44,20 @@ class RegexTokenizer():
                 freq.update(a)
             
             tup = max(freq, key = freq.get)
-            new_tokens = merge(new_tokens, tup, swap_idx)
+            new_tokens = [merge(tokens, tup, swap_idx) for tokens in new_tokens]
             self.vocab[swap_idx] = self.vocab[tup[0]] + self.vocab[tup[1]]
             self.merges[tup] = swap_idx
         
         if verbose:
             print(f'Compression ratio {len(raw_tokens) / len(new_tokens) : .2f}')
+        
+    def register_special_tokens(self, special_tokens):
+        """special tokens is a dictionary containing the special tokens and the respective ids.
+        Example token - {<|endoftext|> : 1257} """
+        self.special_tokens = special_tokens
+        self.inverse_special_tokens = {v : k for k, v in self.special_tokens.items()}
+
+
         
     
     def _encode_chunk(self, text_byte):
@@ -83,11 +93,53 @@ class RegexTokenizer():
         
         return b''.join(part_bytes).decode('utf-8', errors = 'replace')
     
+    def special_encode(self, text, allowed_special = 'none_raise'):
+        """ allowed_special can be of 3 types - 
+        1> `all` - special tokens are present 
+        2> `none` - no special tokens
+        3> `none_raise` - raise an error if any of the special tokens are in the provided text """
+
+        specials = dict()
+        if allowed_special == 'all':
+            assert self.special_tokens
+            specials = self.special_tokens
+        elif allowed_special == 'none':
+            specials = dict()
+        elif allowed_special == 'none_raise':
+            specials = dict()
+            assert all(token not in text for token in self.special_tokens)
+        elif isinstance(allowed_special, set):
+            specials = {k: v for k, v in self.special_tokens.items() if k in allowed_special}
+        else:
+            raise ValueError(f"allowed_special={allowed_special} not understood")
+        
+        if not specials:
+            return self.encode(text)
+        
+        pattern = '(' + '|'.join(re.escape(k) for k in specials) + ')'
+        splits = re.split(pattern, text)
+        ids = []
+        for split in splits:
+            if split in specials:
+                ids.append(specials[split])
+            
+            else:
+                ids.extend(self.encode(split))
+        
+        return ids
+        
+            
+
+        
+        
+    
 
 reg = RegexTokenizer()
 reg.train('/teamspace/studios/this_studio/Tokenization/TaylorSwiftWiki.txt', 1256, True)
-text = 'Another attempt at a really random text !!!></ 😂'
-print(reg.decode(reg.encode(text)) == text)
+text = 'this is just like the most random text fr ??//😂. with some <|padding|> for no reason. okay bye <|endoftext|>'
+reg.register_special_tokens({'<|padding|>' : 10000, '<|endoftext|>' : 10001})
+print(reg.special_encode(text, 'all'))
+
     
 
 
