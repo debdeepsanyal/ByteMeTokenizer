@@ -1,8 +1,6 @@
 from copy import deepcopy
 from collections import Counter
 from typing import List
-import sys
-from InvalidVocabSizeException import InvalidVocabSizeException
 class BasicTokenizer:
     def train(self, text : str, vocab_size : int, isFile : bool = False, verbose : bool = False):
         if not isFile:
@@ -13,15 +11,7 @@ class BasicTokenizer:
         
         raw_tokens = list(self.text.encode('utf-8'))
 
-        try:
-            if vocab_size < 256:
-                raise InvalidVocabSizeException
-            else:
-                self.vocab_size = vocab_size
-        
-        except InvalidVocabSizeException:
-            print("Vocab Size should be greater than 256.")
-            sys.exit()
+        assert vocab_size >=256
 
         
         self.merges = {}
